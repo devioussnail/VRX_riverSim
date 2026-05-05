@@ -9,8 +9,8 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name + '/launch', ['launch/simple_autonomy.launch.py']),
-    ],
+            ('share/' + package_name + '/launch', ['launch/perception.launch.py']),
+        ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='Noah Mason',
@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'simple_autonomy_node = river_autonomy.simple_autonomy_node:main',
+                'perception_node = river_autonomy.perception_node:main',
         ],
     },
 )
