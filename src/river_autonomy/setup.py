@@ -11,6 +11,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/' + package_name + '/launch', ['launch/perception.launch.py']),
         ('share/' + package_name + '/launch', ['launch/planning.launch.py']),
+        ('share/' + package_name + '/launch', ['launch/control.launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -23,6 +24,7 @@ setup(
         'console_scripts': [
             'perception_node = river_autonomy.perception_node:main',
             'planning_node = river_autonomy.planning_node:main',
+            'control_node = river_autonomy.control_node:main',
         ],
     },
 )
