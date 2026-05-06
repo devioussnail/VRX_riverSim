@@ -146,7 +146,7 @@ class ControlNode(Node):
         yaw_rate_error = self.target_yaw_rate - self.current_yaw_rate
 
         desired_yaw_effort = self.heading_kp * heading_error + yaw_rate_error
-        steer_cmd = clamp(desired_yaw_effort, -self.max_pod_angle, self.max_pod_angle)
+        steer_cmd = clamp(-desired_yaw_effort, -self.max_pod_angle, self.max_pod_angle)
 
         forward_thrust = clamp(
             self.target_speed * self.base_thrust_gain,
