@@ -12,6 +12,7 @@ setup(
         ('share/' + package_name + '/launch', ['launch/perception.launch.py']),
         ('share/' + package_name + '/launch', ['launch/planning.launch.py']),
         ('share/' + package_name + '/launch', ['launch/control.launch.py']),
+        ('share/' + package_name + '/launch', ['launch/autonomy_stack.launch.py']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

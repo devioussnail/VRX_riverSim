@@ -94,6 +94,15 @@ ros2 launch vrx_gz competition.launch.py \
   gui:=false
 ```
 
+### Full Autonomy Stack (Terminal 2)
+```bash
+cd ~/vrx_ws
+source install/setup.bash
+ros2 launch river_autonomy autonomy_stack.launch.py
+```
+
+This starts perception, planning, and control together.
+
 ### Perception Node (Terminal 2)
 ```bash
 cd ~/vrx_ws
