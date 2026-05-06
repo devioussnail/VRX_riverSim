@@ -9,8 +9,9 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-            ('share/' + package_name + '/launch', ['launch/perception.launch.py']),
-        ],
+        ('share/' + package_name + '/launch', ['launch/perception.launch.py']),
+        ('share/' + package_name + '/launch', ['launch/planning.launch.py']),
+    ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='Noah Mason',
@@ -20,7 +21,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-                'perception_node = river_autonomy.perception_node:main',
+            'perception_node = river_autonomy.perception_node:main',
+            'planning_node = river_autonomy.planning_node:main',
         ],
     },
 )
