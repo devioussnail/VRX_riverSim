@@ -1,6 +1,6 @@
-# River Autonomy - Perception + Planning Layers
+# River Autonomy - Perception + Planning + Control Layers
 
-ROS 2 Python package implementing the Perception and Planning layers of the Perceive->Plan->Control architecture for autonomous boat control in VRX simulation.
+ROS 2 Python package implementing the full Perceive->Plan->Control architecture for autonomous boat control in VRX simulation.
 
 ## Architecture
 
@@ -15,9 +15,9 @@ Planning Layer (implemented)
 ├─ Publishes: Target Heading, Target Speed, Target Yaw Rate
 └─ Output → Control Layer
 
-Control Layer (future)
-├─ Subscribes to: Navigation Goals
-├─ Publishes: Thrust Commands
+Control Layer (implemented)
+├─ Subscribes to: Target Heading, Target Speed, Target Yaw Rate
+├─ Publishes: Left/Right Thrust, Left/Right Pod Angle
 └─ Output → Thrusters
 ```
 
@@ -54,6 +54,26 @@ Behavior:
 - Stops and turns away when obstacles are too close
 - Holds position command when goal tolerance is reached
 
+## Control Node
+
+Subscriptions (Input from Planning and Perception):
+- /planning/target_heading: Desired global heading (rad)
+- /planning/target_speed: Desired forward speed
+- /planning/target_yaw_rate: Desired turn rate
+- /perception/robot_state: Current yaw and yaw rate feedback
+
+Publications (Output to WAM-V):
+- /wamv/thrusters/left/thrust
+- /wamv/thrusters/right/thrust
+- /wamv/thrusters/left/pos
+- /wamv/thrusters/right/pos
+
+Behavior:
+- Tracks planner heading and yaw-rate targets with feedback control
+- Converts target speed into forward thrust
+- Adds differential thrust for turning
+- Commands pod angles for steering
+
 ## Build
 
 ```bash
@@ -74,6 +94,15 @@ ros2 launch vrx_gz competition.launch.py \
   gui:=false
 ```
 
+### Full Autonomy Stack (Terminal 2)
+```bash
+cd ~/vrx_ws
+source install/setup.bash
+ros2 launch river_autonomy autonomy_stack.launch.py
+```
+
+This starts perception, planning, and control together.
+
 ### Perception Node (Terminal 2)
 ```bash
 cd ~/vrx_ws
@@ -88,7 +117,14 @@ source install/setup.bash
 ros2 launch river_autonomy planning.launch.py
 ```
 
-### Monitor Output (Terminal 4)
+### Control Node (Terminal 4)
+```bash
+cd ~/vrx_ws
+source install/setup.bash
+ros2 launch river_autonomy control.launch.py
+```
+
+### Monitor Output (Terminal 5)
 ```bash
 # Watch perception state
 ros2 topic echo /perception/robot_state
@@ -100,11 +136,17 @@ ros2 topic echo /perception/obstacles
 ros2 topic echo /planning/target_heading
 ros2 topic echo /planning/target_speed
 ros2 topic echo /planning/target_yaw_rate
+
+# Watch control outputs
+ros2 topic echo /wamv/thrusters/left/thrust
+ros2 topic echo /wamv/thrusters/right/thrust
+ros2 topic echo /wamv/thrusters/left/pos
+ros2 topic echo /wamv/thrusters/right/pos
 ```
 
 ## Configuration
 
-Edit parameters in launch/perception.launch.py and launch/planning.launch.py:
+Edit parameters in launch/perception.launch.py, launch/planning.launch.py, and launch/control.launch.py:
 
 - `odom_topic`: Odometry subscription topic
 - `imu_topic`: IMU subscription topic  
@@ -126,11 +168,16 @@ ros2 launch river_autonomy planning.launch.py \
   goal_y:=0.0 \
   caution_distance:=12.0 \
   stop_distance:=5.0
+
+ros2 launch river_autonomy control.launch.py \
+  base_thrust_gain:=450.0 \
+  heading_kp:=2.0 \
+  yaw_rate_kp:=220.0
 ```
 
 ## Next Steps
 
-1. Control Node: Subscribe to /planning/target_* topics and output thruster commands.
-2. Message Definitions: Replace Float32MultiArray with custom ROS messages for safer interfaces.
-3. Goal Management: Add dynamic goal updates through a service or action.
-4. Validation: Add integration tests for perception-to-planning handoff.
+1. Message Definitions: Replace Float32MultiArray with custom ROS messages for safer interfaces.
+2. Goal Management: Add dynamic goal updates through a service or action.
+3. Validation: Add integration tests for perception-to-planning-to-control handoff.
+4. Safety: Add command timeout and watchdog behavior in control node.
