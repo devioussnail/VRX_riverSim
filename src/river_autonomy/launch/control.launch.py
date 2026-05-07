@@ -20,8 +20,9 @@ def generate_launch_description():
             {'base_thrust_gain': 420.0},
             {'max_thrust': 900.0},
             {'heading_kp': 1.5},
-            {'yaw_rate_kp': 250.0},
+            {'yaw_rate_kp': 200.0},
             {'max_pod_angle': 0.9},
+            {'max_pod_rate': 0.7},
             {'control_rate_hz': 20.0},
         ],
     )

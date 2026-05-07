@@ -189,6 +189,7 @@ class PerceptionNode(Node):
                 'front_center': distance to nearest obstacle in center sector,
                 'front_right': distance to nearest obstacle in right sector,
                 'min_distance': minimum distance to any obstacle,
+                'nearest_bearing': bearing of nearest obstacle in front cone (rad),
             }
         """
         if self.latest_scan is None:
@@ -197,6 +198,7 @@ class PerceptionNode(Node):
                 'front_center': float('inf'),
                 'front_right': float('inf'),
                 'min_distance': float('inf'),
+                'nearest_bearing': float('nan'),
             }
         
         scan = self.latest_scan
@@ -215,31 +217,41 @@ class PerceptionNode(Node):
                 'front_center': float('inf'),
                 'front_right': float('inf'),
                 'min_distance': float('inf'),
+                'nearest_bearing': float('nan'),
             }
         
-        # Divide front sector into three parts: left, center, right
-        sector_width = int(num_beams * self.lidar_sector_angle / 360.0)
-        center_idx = num_beams // 2  # Front-facing beam
-        
-        # Define sector indices (relative to front)
-        left_start = center_idx + sector_width // 3
-        left_end = center_idx + sector_width
-        center_start = center_idx - sector_width // 3
-        center_end = center_idx + sector_width // 3
-        right_start = center_idx - sector_width
-        right_end = center_idx - sector_width // 3
-        
-        # Find minimum distance in each sector
-        def min_in_sector(start, end):
-            sector_ranges = [
-                ranges[i] for i in range(start, end + 1)
-                if i >= 0 and i < num_beams and scan.range_min <= ranges[i] <= self.lidar_filter_range
-            ]
-            return min(sector_ranges) if sector_ranges else float('inf')
-        
-        front_left = min_in_sector(left_start, left_end)
-        front_center = min_in_sector(center_start, center_end)
-        front_right = min_in_sector(right_start, right_end)
+        # Split a front cone centered at 0 rad into left/center/right bins.
+        # Using angles avoids assumptions about scan index ordering.
+        half_front_angle = math.radians(self.lidar_sector_angle) * 0.5
+        center_half_angle = half_front_angle / 3.0
+        max_valid_range = min(scan.range_max, self.lidar_filter_range)
+
+        front_left = float('inf')
+        front_center = float('inf')
+        front_right = float('inf')
+        nearest_range = float('inf')
+        nearest_bearing = float('nan')
+
+        for i, r in enumerate(ranges):
+            if not (scan.range_min <= r <= max_valid_range):
+                continue
+
+            beam_angle = normalize_angle(scan.angle_min + i * scan.angle_increment)
+
+            # Keep only beams in the front cone.
+            if abs(beam_angle) > half_front_angle:
+                continue
+
+            if beam_angle > center_half_angle:
+                front_left = min(front_left, r)
+            elif beam_angle < -center_half_angle:
+                front_right = min(front_right, r)
+            else:
+                front_center = min(front_center, r)
+
+            if r < nearest_range:
+                nearest_range = r
+                nearest_bearing = beam_angle
         
         min_distance = min(front_left, front_center, front_right)
         
@@ -248,6 +260,7 @@ class PerceptionNode(Node):
             'front_center': front_center,
             'front_right': front_right,
             'min_distance': min_distance,
+            'nearest_bearing': nearest_bearing,
         }
     
     def publish_state(self):
@@ -276,6 +289,7 @@ class PerceptionNode(Node):
             float(obstacles['front_center']),
             float(obstacles['front_right']),
             float(obstacles['min_distance']),
+            float(obstacles['nearest_bearing']),
         ]
         self.obstacles_pub.publish(obstacles_msg)
         

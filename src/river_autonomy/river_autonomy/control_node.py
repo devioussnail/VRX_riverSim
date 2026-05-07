@@ -42,6 +42,7 @@ class ControlNode(Node):
         self.declare_parameter('heading_kp', 1.5)
         self.declare_parameter('yaw_rate_kp', 250.0)
         self.declare_parameter('max_pod_angle', 0.9)
+        self.declare_parameter('max_pod_rate', 0.7)
         self.declare_parameter('control_rate_hz', 20.0)
 
         robot_state_topic = str(self.get_parameter('robot_state_topic').value)
@@ -80,7 +81,9 @@ class ControlNode(Node):
         self.heading_kp = float(self.get_parameter('heading_kp').value)
         self.yaw_rate_kp = float(self.get_parameter('yaw_rate_kp').value)
         self.max_pod_angle = float(self.get_parameter('max_pod_angle').value)
+        self.max_pod_rate = float(self.get_parameter('max_pod_rate').value)
         control_rate_hz = float(self.get_parameter('control_rate_hz').value)
+        self.control_dt = 1.0 / max(control_rate_hz, 1e-6)
 
         self.current_yaw = None
         self.current_yaw_rate = 0.0
@@ -90,6 +93,8 @@ class ControlNode(Node):
         self.target_yaw_rate = 0.0
 
         self.last_mode = None
+        self.left_pos_cmd = 0.0
+        self.right_pos_cmd = 0.0
 
         self.timer = self.create_timer(1.0 / control_rate_hz, self.control_loop)
 
@@ -139,6 +144,8 @@ class ControlNode(Node):
     def control_loop(self):
         if self.current_yaw is None or self.target_heading is None:
             self.set_mode('waiting_for_planning_or_state')
+            self.left_pos_cmd = 0.0
+            self.right_pos_cmd = 0.0
             self.publish_thrusters(0.0, 0.0, 0.0, 0.0)
             return
 
@@ -146,7 +153,10 @@ class ControlNode(Node):
         yaw_rate_error = self.target_yaw_rate - self.current_yaw_rate
 
         desired_yaw_effort = self.heading_kp * heading_error + yaw_rate_error
-        steer_cmd = clamp(-desired_yaw_effort, -self.max_pod_angle, self.max_pod_angle)
+        steer_cmd_target = clamp(-desired_yaw_effort, -self.max_pod_angle, self.max_pod_angle)
+        max_step = self.max_pod_rate * self.control_dt
+        self.left_pos_cmd += clamp(steer_cmd_target - self.left_pos_cmd, -max_step, max_step)
+        self.right_pos_cmd += clamp(steer_cmd_target - self.right_pos_cmd, -max_step, max_step)
 
         forward_thrust = clamp(
             self.target_speed * self.base_thrust_gain,
@@ -160,7 +170,7 @@ class ControlNode(Node):
         right_thrust = clamp(forward_thrust + turn_delta, -self.max_thrust, self.max_thrust)
 
         self.set_mode('tracking_targets')
-        self.publish_thrusters(left_thrust, right_thrust, steer_cmd, steer_cmd)
+        self.publish_thrusters(left_thrust, right_thrust, self.left_pos_cmd, self.right_pos_cmd)
 
 
 def main(args=None):

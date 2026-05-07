@@ -7,7 +7,7 @@ ROS 2 Python package implementing the full Perceive->Plan->Control architecture 
 ```
 Perception Layer (implemented)
 ├─ Subscribes to: Odometry, IMU, Lidar
-├─ Publishes: Robot State, Obstacle Distances
+├─ Publishes: Robot State, Obstacle Distances + Nearest Bearing
 └─ Output → Planning Layer
 
 Planning Layer (implemented)
@@ -30,7 +30,7 @@ Control Layer (implemented)
 
 **Publications (Output to Planning):**
 - `/perception/robot_state`: Aggregated state vector [x, y, yaw, vx, vy, vyaw, ax, ay, az, timestamp]
-- `/perception/obstacles`: Obstacle distances [left, center, right, min_distance]
+- `/perception/obstacles`: Obstacle summary [left, center, right, min_distance, nearest_bearing]
 
 **Processing:**
 - Sensor fusion: Combines odometry + IMU
@@ -41,7 +41,7 @@ Control Layer (implemented)
 
 Subscriptions (Input from Perception):
 - /perception/robot_state: Aggregated state vector [x, y, yaw, vx, vy, vyaw, ax, ay, az, timestamp]
-- /perception/obstacles: Obstacle distances [left, center, right, min_distance]
+- /perception/obstacles: Obstacle summary [left, center, right, min_distance, nearest_bearing]
 
 Publications (Output to Control):
 - /planning/target_heading: Desired global heading (rad)
@@ -50,9 +50,8 @@ Publications (Output to Control):
 
 Behavior:
 - Tracks a configurable goal point (goal_x, goal_y)
-- Slows down when obstacles are nearby
-- Stops and turns away when obstacles are too close
-- Holds position command when goal tolerance is reached
+- Uses a staged obstacle-pass state machine for smoother maneuvers (`track_goal`, `approach_slow`, `commit_turn`, `pass_obstacle`, `recover_to_goal`, `goal_reached`)
+- Chooses and commits to a pass side, then recovers back to the goal heading
 
 ## Control Node
 
@@ -93,6 +92,18 @@ ros2 launch vrx_gz competition.launch.py \
   config_file:=$HOME/vrx_ws/src/vrx/vrx_gz/config/river_world.yaml \
   gui:=false
 ```
+
+### VRX River World With Obstacles (Terminal 1)
+```bash
+cd ~/vrx_ws
+source install/setup.bash
+ros2 launch vrx_gz competition.launch.py \
+  world:=river_world_obstacles \
+  config_file:=$HOME/vrx_ws/src/vrx/vrx_gz/config/river_world_obstacles.yaml \
+  gui:=false
+```
+
+Use this world to test obstacle detection and avoidance with large static obstacle columns.
 
 ### Full Autonomy Stack (Terminal 2)
 ```bash
@@ -155,6 +166,12 @@ Edit parameters in launch/perception.launch.py, launch/planning.launch.py, and l
 - `lidar_sector_angle`: Front sector width for obstacle detection (degrees)
 - `filter_buffer_size`: Moving average buffer size (samples)
 - `publish_rate_hz`: State publishing frequency
+- `turn_heading_offset_deg`: Heading offset used during committed turn phase
+- `pass_heading_offset_deg`: Heading offset used while passing obstacle
+- `commit_min_hold_sec`: Minimum duration of committed turn phase
+- `pass_min_hold_sec`: Minimum duration of pass-obstacle phase
+- `recover_heading_tolerance_deg`: Heading error required to complete recover phase
+- `max_pod_rate`: Maximum pod angle rate (rad/s), limits steering jitter
 
 Example with custom parameters:
 ```bash
@@ -166,13 +183,16 @@ ros2 launch river_autonomy perception.launch.py \
 ros2 launch river_autonomy planning.launch.py \
   goal_x:=180.0 \
   goal_y:=0.0 \
-  caution_distance:=12.0 \
-  stop_distance:=5.0
+  caution_distance:=14.0 \
+  stop_distance:=6.0 \
+  turn_heading_offset_deg:=34.0 \
+  pass_heading_offset_deg:=18.0
 
 ros2 launch river_autonomy control.launch.py \
-  base_thrust_gain:=450.0 \
-  heading_kp:=2.0 \
-  yaw_rate_kp:=220.0
+  base_thrust_gain:=360.0 \
+  heading_kp:=1.5 \
+  yaw_rate_kp:=220.0 \
+  max_pod_rate:=1.1
 ```
 
 ## Next Steps
